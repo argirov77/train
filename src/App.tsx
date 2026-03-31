@@ -1,101 +1,73 @@
-import { useTopics } from '@/hooks/useTopics';
-import { StatsBar } from '@/components/StatsBar';
-import { FilterTabs } from '@/components/FilterTabs';
-import { CategoryGroup } from '@/components/CategoryGroup';
-import { AddTopicForm } from '@/components/AddTopicForm';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { supabaseInitError } from '@/lib/supabase';
+import { useMemo, useState } from 'react';
+import { AddModal } from '@/components/AddModal';
+import { Header } from '@/components/Header';
+import { SectionList } from '@/components/SectionList';
+import { useItems } from '@/hooks/useItems';
+import { useQuestions } from '@/hooks/useQuestions';
+import { useSections } from '@/hooks/useSections';
+import { useSources } from '@/hooks/useSources';
+import { useStreak } from '@/hooks/useStreak';
 
 export default function App() {
-  const {
-    loading,
-    error,
-    filter,
-    setFilter,
-    stats,
-    grouped,
-    addTopic,
-    updateStatus,
-    updateNotes,
-    deleteTopic,
-    seedDefaults,
-    isLocal,
-  } = useTopics();
+  const { sections, setSections, loading, error, refetch, addSection, addTopic, deleteSection, deleteTopic } = useSections();
+  const { streak, refetch: refetchStreak } = useStreak();
+  const { toggleCheck, addItem, deleteItem } = useItems(setSections, refetch);
+  const { addSource, deleteSource } = useSources(refetch);
+  const { addQuestion, deleteQuestion } = useQuestions(refetch);
+
+  const [modal, setModal] = useState<{ mode: 'section' | 'topic' | 'item'; parentId?: string } | null>(null);
+
+  const totals = useMemo(() => {
+    const items = sections.flatMap((section) => section.topics.flatMap((topic) => topic.items));
+    const done = items.filter((item) => item.checked).length;
+    return { done, total: items.length };
+  }, [sections]);
 
   return (
-    <div className="min-h-screen bg-surface-primary dark:bg-surface-primary text-gray-100">
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-mono text-2xl font-bold text-gray-100">
-              Learning Tracker
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              SCADA / Прогнозирование / AI-ML / Архитектура
-            </p>
-          </div>
-          <ThemeToggle />
-        </div>
+    <div className="min-h-screen bg-app text-slate-100">
+      <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-4">
+        <Header done={totals.done} total={totals.total} streak={streak} onAddSection={() => setModal({ mode: 'section' })} />
 
-        {/* Stats */}
-        <StatsBar stats={stats} />
-
-        {/* Add Topic Form */}
-        <AddTopicForm onAdd={addTopic} />
-
-        {/* Filter Tabs */}
-        <FilterTabs current={filter} onChange={setFilter} />
-
-        {/* Supabase config warning (non-blocking) */}
-        {isLocal && supabaseInitError && (
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm text-yellow-400">
-            <span className="font-medium">Локальный режим:</span> данные сохраняются в браузере.{' '}
-            {supabaseInitError}
-          </div>
-        )}
-
-        {/* Runtime error */}
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">
-            {error}
-          </div>
-        )}
-
-        {/* Content */}
+        {error && <div className="rounded border border-red-500/30 bg-red-500/10 p-3 text-red-300 text-sm">{error}</div>}
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : grouped.size === 0 ? (
-          <div className="text-center py-16 space-y-4">
-            <div className="text-gray-500 text-lg">
-              {filter === 'all' ? 'Нет тем для изучения' : 'Нет тем с этим статусом'}
-            </div>
-            {filter === 'all' && (
-              <button
-                onClick={seedDefaults}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
-              >
-                Загрузить стартовый набор тем
-              </button>
-            )}
-          </div>
+          <div className="p-10 text-center text-slate-400">Загрузка…</div>
         ) : (
-          <div className="space-y-8">
-            {Array.from(grouped.entries()).map(([category, topics]) => (
-              <CategoryGroup
-                key={category}
-                category={category}
-                topics={topics}
-                onUpdateStatus={updateStatus}
-                onUpdateNotes={updateNotes}
-                onDelete={deleteTopic}
-              />
-            ))}
-          </div>
+          <SectionList
+            sections={sections}
+            onAddTopic={(sectionId) => setModal({ mode: 'topic', parentId: sectionId })}
+            onAddItem={(topicId) => setModal({ mode: 'item', parentId: topicId })}
+            onDeleteSection={deleteSection}
+            onDeleteTopic={deleteTopic}
+            onToggle={async (itemId, checked) => {
+              await toggleCheck(itemId, checked);
+              await refetchStreak();
+            }}
+            onDeleteItem={deleteItem}
+            addSource={addSource}
+            deleteSource={deleteSource}
+            addQuestion={addQuestion}
+            deleteQuestion={deleteQuestion}
+          />
         )}
       </div>
+
+      <AddModal
+        open={modal !== null}
+        mode={modal?.mode ?? 'section'}
+        title={modal?.mode === 'topic' ? 'Добавить тему' : modal?.mode === 'item' ? 'Добавить пункт' : 'Добавить раздел'}
+        onClose={() => setModal(null)}
+        onSubmit={async ({ title, description }) => {
+          if (!modal) return;
+          if (modal.mode === 'section') {
+            await addSection(title, description);
+          } else if (modal.mode === 'topic' && modal.parentId) {
+            await addTopic(modal.parentId, title, description);
+          } else if (modal.mode === 'item' && modal.parentId) {
+            const topic = sections.flatMap((s) => s.topics).find((t) => t.id === modal.parentId);
+            await addItem(modal.parentId, title, topic?.items.length ?? 0);
+          }
+        }}
+      />
     </div>
   );
 }
