@@ -1,17 +1,34 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
+const rawSupabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
+const rawSupabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
 
-const isValidSupabaseUrl = (url?: string) => {
-  if (!url) return false;
+const isValidSupabaseUrl = (value?: string) => {
+  if (!value) return false;
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(value);
     return parsed.protocol === 'https:' && parsed.hostname.endsWith('supabase.co');
   } catch {
     return false;
   }
 };
+
+const isSupabaseKey = (value?: string) => Boolean(value) && (value!.startsWith('sb_') || value!.split('.').length === 3);
+
+const normalizeSupabaseEnv = (url?: string, anonKey?: string) => {
+  if (!url || !anonKey) {
+    return { supabaseUrl: url, supabaseAnonKey: anonKey };
+  }
+
+  const looksLikeSwapped = isSupabaseKey(url) && isValidSupabaseUrl(anonKey);
+  if (looksLikeSwapped) {
+    return { supabaseUrl: anonKey, supabaseAnonKey: url };
+  }
+
+  return { supabaseUrl: url, supabaseAnonKey: anonKey };
+};
+
+const { supabaseUrl, supabaseAnonKey } = normalizeSupabaseEnv(rawSupabaseUrl, rawSupabaseAnonKey);
 
 const getSupabaseInitError = () => {
   if (!supabaseUrl || !supabaseAnonKey) {
