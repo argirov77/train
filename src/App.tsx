@@ -4,6 +4,7 @@ import { FilterTabs } from '@/components/FilterTabs';
 import { CategoryGroup } from '@/components/CategoryGroup';
 import { AddTopicForm } from '@/components/AddTopicForm';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { supabaseInitError } from '@/lib/supabase';
 
 export default function App() {
   const {
@@ -18,6 +19,7 @@ export default function App() {
     updateNotes,
     deleteTopic,
     seedDefaults,
+    isLocal,
   } = useTopics();
 
   return (
@@ -45,7 +47,15 @@ export default function App() {
         {/* Filter Tabs */}
         <FilterTabs current={filter} onChange={setFilter} />
 
-        {/* Error */}
+        {/* Supabase config warning (non-blocking) */}
+        {isLocal && supabaseInitError && (
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm text-yellow-400">
+            <span className="font-medium">Локальный режим:</span> данные сохраняются в браузере.{' '}
+            {supabaseInitError}
+          </div>
+        )}
+
+        {/* Runtime error */}
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">
             {error}
