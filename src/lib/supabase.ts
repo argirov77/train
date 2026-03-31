@@ -35,12 +35,16 @@ const getSupabaseInitError = () => {
     return 'Supabase не настроен: проверь VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY в Netlify Environment variables и сделай redeploy.';
   }
 
-  if (!isValidSupabaseUrl(supabaseUrl)) {
-    return 'VITE_SUPABASE_URL должен быть Project URL (https://<project-ref>.supabase.co), а не ключом API.';
+  if (isSupabaseKey(supabaseUrl) && supabaseAnonKey.startsWith('sb_secret_')) {
+    return 'Переменные перепутаны: VITE_SUPABASE_URL должен быть Project URL (https://<project-ref>.supabase.co), а VITE_SUPABASE_ANON_KEY — только anon/publishable key (sb_publishable_...), не sb_secret_.';
   }
 
-  if (supabaseUrl.startsWith('sb_')) {
+  if (isSupabaseKey(supabaseUrl)) {
     return 'VITE_SUPABASE_URL содержит API-ключ. Вставь сюда только Project URL из Supabase → Settings → API.';
+  }
+
+  if (!isValidSupabaseUrl(supabaseUrl)) {
+    return 'VITE_SUPABASE_URL должен быть Project URL (https://<project-ref>.supabase.co), а не ключом API.';
   }
 
   if (supabaseAnonKey.startsWith('sb_secret_')) {
