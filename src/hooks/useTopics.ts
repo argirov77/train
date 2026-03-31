@@ -32,21 +32,38 @@ const DEFAULT_TOPICS: Omit<TopicInsert, 'notes'>[] = [
 
 const CATEGORY_ORDER: Category[] = ['SCADA', 'Прогнозирование', 'AI / ML', 'Архитектура', 'Другое'];
 
+const LOCAL_STORAGE_KEY = 'learning_tracker_topics';
+
+function loadLocalTopics(): Topic[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Topic[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalTopics(topics: Topic[]): void {
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(topics));
+}
+
 export function useTopics() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Status | 'all'>('all');
 
+  const isLocal = !supabase;
+
   const fetchTopics = useCallback(async () => {
-    if (!supabase) {
-      setError(supabaseInitError);
+    if (isLocal) {
+      setTopics(loadLocalTopics());
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    const { data, error: err } = await supabase
+    const { data, error: err } = await supabase!
       .from('topics')
       .select('*')
       .order('created_at', { ascending: true });
@@ -58,15 +75,27 @@ export function useTopics() {
       setError(null);
     }
     setLoading(false);
-  }, []);
+  }, [isLocal]);
 
   useEffect(() => {
     fetchTopics();
   }, [fetchTopics]);
 
   const addTopic = useCallback(async (input: Omit<Topic, 'id' | 'created_at' | 'updated_at'>) => {
-    if (!supabase) {
-      setError(supabaseInitError);
+    if (isLocal) {
+      const now = new Date().toISOString();
+      const newTopic: Topic = {
+        ...input,
+        id: crypto.randomUUID(),
+        notes: input.notes ?? '',
+        created_at: now,
+        updated_at: now,
+      };
+      setTopics(prev => {
+        const updated = [...prev, newTopic];
+        saveLocalTopics(updated);
+        return updated;
+      });
       return;
     }
 
@@ -81,7 +110,7 @@ export function useTopics() {
     };
     setTopics(prev => [...prev, optimistic]);
 
-    const { data, error: err } = await supabase
+    const { data, error: err } = await supabase!
       .from('topics')
       .insert(input)
       .select()
@@ -93,11 +122,17 @@ export function useTopics() {
     } else if (data) {
       setTopics(prev => prev.map(t => (t.id === tempId ? data : t)));
     }
-  }, []);
+  }, [isLocal]);
 
   const updateStatus = useCallback(async (id: string, status: Status) => {
-    if (!supabase) {
-      setError(supabaseInitError);
+    if (isLocal) {
+      setTopics(prev => {
+        const updated = prev.map(t =>
+          t.id === id ? { ...t, status, updated_at: new Date().toISOString() } : t
+        );
+        saveLocalTopics(updated);
+        return updated;
+      });
       return;
     }
 
@@ -106,16 +141,22 @@ export function useTopics() {
       prev.map(t => (t.id === id ? { ...t, status, updated_at: new Date().toISOString() } : t))
     );
 
-    const { error: err } = await supabase.from('topics').update({ status }).eq('id', id);
+    const { error: err } = await supabase!.from('topics').update({ status }).eq('id', id);
     if (err) {
       setTopics(previous);
       setError(err.message);
     }
-  }, [topics]);
+  }, [isLocal, topics]);
 
   const updateNotes = useCallback(async (id: string, notes: string) => {
-    if (!supabase) {
-      setError(supabaseInitError);
+    if (isLocal) {
+      setTopics(prev => {
+        const updated = prev.map(t =>
+          t.id === id ? { ...t, notes, updated_at: new Date().toISOString() } : t
+        );
+        saveLocalTopics(updated);
+        return updated;
+      });
       return;
     }
 
@@ -124,32 +165,45 @@ export function useTopics() {
       prev.map(t => (t.id === id ? { ...t, notes, updated_at: new Date().toISOString() } : t))
     );
 
-    const { error: err } = await supabase.from('topics').update({ notes }).eq('id', id);
+    const { error: err } = await supabase!.from('topics').update({ notes }).eq('id', id);
     if (err) {
       setTopics(previous);
       setError(err.message);
     }
-  }, [topics]);
+  }, [isLocal, topics]);
 
   const deleteTopic = useCallback(async (id: string) => {
-    if (!supabase) {
-      setError(supabaseInitError);
+    if (isLocal) {
+      setTopics(prev => {
+        const updated = prev.filter(t => t.id !== id);
+        saveLocalTopics(updated);
+        return updated;
+      });
       return;
     }
 
     const previous = topics;
     setTopics(prev => prev.filter(t => t.id !== id));
 
-    const { error: err } = await supabase.from('topics').delete().eq('id', id);
+    const { error: err } = await supabase!.from('topics').delete().eq('id', id);
     if (err) {
       setTopics(previous);
       setError(err.message);
     }
-  }, [topics]);
+  }, [isLocal, topics]);
 
   const seedDefaults = useCallback(async () => {
-    if (!supabase) {
-      setError(supabaseInitError);
+    if (isLocal) {
+      const now = new Date().toISOString();
+      const seeded: Topic[] = DEFAULT_TOPICS.map(t => ({
+        ...t,
+        id: crypto.randomUUID(),
+        notes: '',
+        created_at: now,
+        updated_at: now,
+      }));
+      setTopics(seeded);
+      saveLocalTopics(seeded);
       return;
     }
 
@@ -158,13 +212,13 @@ export function useTopics() {
       notes: '',
     }));
 
-    const { data, error: err } = await supabase.from('topics').insert(inserts).select();
+    const { data, error: err } = await supabase!.from('topics').insert(inserts).select();
     if (err) {
       setError(err.message);
     } else if (data) {
       setTopics(data);
     }
-  }, []);
+  }, [isLocal]);
 
   const stats = useMemo(() => {
     const total = topics.length;
@@ -206,5 +260,6 @@ export function useTopics() {
     updateNotes,
     deleteTopic,
     seedDefaults,
+    isLocal,
   };
 }
