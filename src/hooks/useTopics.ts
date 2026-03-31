@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseInitError } from '@/lib/supabase';
 import type { Topic, TopicInsert, Status, Category } from '@/types';
 
 const DEFAULT_TOPICS: Omit<TopicInsert, 'notes'>[] = [
@@ -39,6 +39,12 @@ export function useTopics() {
   const [filter, setFilter] = useState<Status | 'all'>('all');
 
   const fetchTopics = useCallback(async () => {
+    if (!supabase) {
+      setError(supabaseInitError);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const { data, error: err } = await supabase
       .from('topics')
@@ -59,6 +65,11 @@ export function useTopics() {
   }, [fetchTopics]);
 
   const addTopic = useCallback(async (input: Omit<Topic, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!supabase) {
+      setError(supabaseInitError);
+      return;
+    }
+
     const tempId = crypto.randomUUID();
     const now = new Date().toISOString();
     const optimistic: Topic = {
@@ -85,6 +96,11 @@ export function useTopics() {
   }, []);
 
   const updateStatus = useCallback(async (id: string, status: Status) => {
+    if (!supabase) {
+      setError(supabaseInitError);
+      return;
+    }
+
     const previous = topics;
     setTopics(prev =>
       prev.map(t => (t.id === id ? { ...t, status, updated_at: new Date().toISOString() } : t))
@@ -98,6 +114,11 @@ export function useTopics() {
   }, [topics]);
 
   const updateNotes = useCallback(async (id: string, notes: string) => {
+    if (!supabase) {
+      setError(supabaseInitError);
+      return;
+    }
+
     const previous = topics;
     setTopics(prev =>
       prev.map(t => (t.id === id ? { ...t, notes, updated_at: new Date().toISOString() } : t))
@@ -111,6 +132,11 @@ export function useTopics() {
   }, [topics]);
 
   const deleteTopic = useCallback(async (id: string) => {
+    if (!supabase) {
+      setError(supabaseInitError);
+      return;
+    }
+
     const previous = topics;
     setTopics(prev => prev.filter(t => t.id !== id));
 
@@ -122,6 +148,11 @@ export function useTopics() {
   }, [topics]);
 
   const seedDefaults = useCallback(async () => {
+    if (!supabase) {
+      setError(supabaseInitError);
+      return;
+    }
+
     const inserts: Omit<Topic, 'id' | 'created_at' | 'updated_at'>[] = DEFAULT_TOPICS.map(t => ({
       ...t,
       notes: '',
