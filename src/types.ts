@@ -1,17 +1,56 @@
-export type Status = 'todo' | 'progress' | 'review' | 'done';
-export type Priority = 'высокий' | 'средний' | 'низкий';
-export type Category = 'SCADA' | 'Прогнозирование' | 'AI / ML' | 'Архитектура' | 'Другое';
+export type SourceKind = 'youtube' | 'doc' | 'article' | 'link';
+
+export interface Source {
+  id: string;
+  item_id: string;
+  label: string;
+  url: string;
+  kind: SourceKind;
+}
+
+export interface Question {
+  id: string;
+  item_id: string;
+  text: string;
+  position: number;
+}
+
+export interface Item {
+  id: string;
+  topic_id: string;
+  title: string;
+  position: number;
+  checked: boolean;
+  checked_at: string | null;
+  sources: Source[];
+  questions: Question[];
+}
 
 export interface Topic {
   id: string;
-  name: string;
-  subtitle?: string;
-  category: Category;
-  status: Status;
-  priority: Priority;
-  notes: string;
-  created_at: string;
-  updated_at: string;
+  section_id: string;
+  title: string;
+  description?: string;
+  position: number;
+  items: Item[];
 }
 
-export type TopicInsert = Omit<Topic, 'id' | 'created_at' | 'updated_at'>;
+export interface Section {
+  id: string;
+  title: string;
+  description?: string;
+  position: number;
+  topics: Topic[];
+}
+
+export interface ActivityLog {
+  id: string;
+  date: string;
+  items_done: number;
+}
+
+export interface StreakInfo {
+  current: number;
+  longest: number;
+  today: boolean;
+}

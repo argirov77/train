@@ -1,30 +1,70 @@
--- Learning Tracker: схема БД
--- Запустить в Supabase SQL Editor
+-- Learning System v2 schema
 
-create table topics (
-  id          uuid primary key default gen_random_uuid(),
-  name        text not null,
-  subtitle    text,
-  category    text not null,   -- 'SCADA' | 'Прогнозирование' | 'AI / ML' | 'Архитектура' | 'Другое'
-  status      text not null default 'todo',  -- 'todo' | 'progress' | 'review' | 'done'
-  priority    text not null default 'средний', -- 'высокий' | 'средний' | 'низкий'
-  notes       text default '',
-  created_at  timestamptz default now(),
-  updated_at  timestamptz default now()
+-- Дропаем старое
+DROP TABLE IF EXISTS topics CASCADE;
+
+-- Разделы
+CREATE TABLE sections (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title       text NOT NULL,
+  description text,
+  position    int  NOT NULL DEFAULT 0,
+  created_at  timestamptz DEFAULT now()
 );
 
--- Триггер для автообновления updated_at
-create or replace function update_updated_at()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
+-- Темы внутри раздела
+CREATE TABLE topics (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  section_id  uuid NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+  title       text NOT NULL,
+  description text,
+  position    int  NOT NULL DEFAULT 0,
+  created_at  timestamptz DEFAULT now()
+);
 
-create trigger set_updated_at
-before update on topics
-for each row execute function update_updated_at();
+-- Пункты внутри темы
+CREATE TABLE items (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  topic_id    uuid NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+  title       text NOT NULL,
+  position    int  NOT NULL DEFAULT 0,
+  checked     boolean NOT NULL DEFAULT false,
+  checked_at  timestamptz,
+  created_at  timestamptz DEFAULT now()
+);
 
--- RLS выключен (личное приложение)
-alter table topics disable row level security;
+CREATE TABLE sources (
+  id       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_id  uuid NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  label    text NOT NULL,
+  url      text NOT NULL,
+  kind     text NOT NULL DEFAULT 'link'
+);
+
+CREATE TABLE questions (
+  id       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_id  uuid NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  text     text NOT NULL,
+  position int  NOT NULL DEFAULT 0
+);
+
+CREATE TABLE activity_log (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  date       date NOT NULL UNIQUE,
+  items_done int  NOT NULL DEFAULT 0
+);
+
+CREATE OR REPLACE FUNCTION increment_activity(log_date date)
+RETURNS void AS $$
+  INSERT INTO activity_log (date, items_done)
+  VALUES (log_date, 1)
+  ON CONFLICT (date)
+  DO UPDATE SET items_done = activity_log.items_done + 1;
+$$ LANGUAGE sql;
+
+ALTER TABLE sections     DISABLE ROW LEVEL SECURITY;
+ALTER TABLE topics       DISABLE ROW LEVEL SECURITY;
+ALTER TABLE items        DISABLE ROW LEVEL SECURITY;
+ALTER TABLE sources      DISABLE ROW LEVEL SECURITY;
+ALTER TABLE questions    DISABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_log DISABLE ROW LEVEL SECURITY;
