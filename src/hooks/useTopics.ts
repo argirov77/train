@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase, supabaseInitError } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import type { Topic, TopicInsert, Status, Category } from '@/types';
 
 const DEFAULT_TOPICS: Omit<TopicInsert, 'notes'>[] = [
