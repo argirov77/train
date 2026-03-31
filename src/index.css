@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface-primary text-gray-100 font-sans antialiased;
+  }
+
+  .light body {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
