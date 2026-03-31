@@ -36,15 +36,11 @@ const getSupabaseInitError = () => {
   }
 
   if (!isValidSupabaseUrl(supabaseUrl)) {
-    return 'VITE_SUPABASE_URL должен быть Project URL (https://<project-ref>.supabase.co), а не ключом API.';
-  }
-
-  if (supabaseUrl.startsWith('sb_')) {
-    return 'VITE_SUPABASE_URL содержит API-ключ. Вставь сюда только Project URL из Supabase → Settings → API.';
+    return 'VITE_SUPABASE_URL должен быть Project URL (https://<project-ref>.supabase.co), а не ключом API. Найди его в Supabase → Settings → API → Project URL.';
   }
 
   if (supabaseAnonKey.startsWith('sb_secret_')) {
-    return 'VITE_SUPABASE_ANON_KEY содержит secret key. Для фронтенда используй только anon/publishable key (обычно начинается с sb_publishable_).';
+    return 'VITE_SUPABASE_ANON_KEY содержит secret key — это небезопасно! Используй anon/publishable key из Supabase → Settings → API → anon public.';
   }
 
   return null;
