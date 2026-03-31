@@ -14,7 +14,9 @@ const isValidSupabaseUrl = (value?: string) => {
 };
 
 const isSupabaseKey = (value?: string) =>
-  Boolean(value) && (value!.startsWith('sb_') || value!.split('.').length === 3);
+  Boolean(value) &&
+  !value!.startsWith('https://') &&
+  (value!.startsWith('sb_') || value!.split('.').length === 3);
 
 const normalizeSupabaseEnv = (url?: string, anonKey?: string) => {
   if (!url || !anonKey) {
