@@ -33,6 +33,7 @@ npm run dev
 2. Подключить репо в [netlify.com](https://netlify.com) → Add new site
 3. Build command: `npm run build`, Publish dir: `dist`
 4. Site settings → Environment variables → добавить:
-   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_URL` (только Project URL вида `https://<project-ref>.supabase.co`)
    - `VITE_SUPABASE_ANON_KEY` (вставить anon/publishable key, обычно `sb_publishable_...`)
+   - ⚠️ Никогда не вставляй `sb_secret_...` во фронтенд-переменные.
 5. Deploy
