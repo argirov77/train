@@ -16,7 +16,7 @@
 
 1. Создать проект на [supabase.com](https://supabase.com)
 2. Открыть SQL Editor, выполнить миграцию из `supabase/schema.sql`
-3. Скопировать **Project URL** и **anon key** из Settings → API
+3. Скопировать **Project URL** и **anon/publishable key** из Settings → API (не secret key)
 
 ### 2. Локально
 
@@ -34,5 +34,5 @@ npm run dev
 3. Build command: `npm run build`, Publish dir: `dist`
 4. Site settings → Environment variables → добавить:
    - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_SUPABASE_ANON_KEY` (вставить anon/publishable key, обычно `sb_publishable_...`)
 5. Deploy
