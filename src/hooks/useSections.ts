@@ -17,7 +17,7 @@ const normalizeSections = (data: Section[] | null): Section[] =>
       topics: topics.map((topic, topicIndex) => {
         const sortedItems = byPosition(topic.items ?? []).map((item) => ({
           ...item,
-          sources: item.sources ?? [],
+          sources: item.sources ?? (item as { item_sources?: Section['topics'][number]['items'][number]['sources'] }).item_sources ?? [],
           questions: byPosition(item.questions ?? []),
         }));
 
@@ -74,7 +74,7 @@ export function useSections() {
           *,
           items (
             *,
-            sources (*),
+            item_sources (*),
             questions (*)
           )
         )
@@ -115,8 +115,8 @@ export function useSections() {
     }
 
     const { data: progressData, error: progressError } = await supabase
-      .from('user_progress')
-      .select('item_id, is_completed, completed_at')
+      .from('user_item_progress')
+      .select('item_id, status, completed_at, last_seen_at, completion_percent')
       .eq('user_id', userId)
       .in('item_id', itemIds);
 
@@ -135,10 +135,14 @@ export function useSections() {
             return progress
               ? {
                   ...item,
-                  checked: progress.is_completed,
+                  checked: progress.status === 'completed',
                   checked_at: progress.completed_at,
+                  sources: (item as { item_sources?: typeof item.sources }).item_sources ?? item.sources,
                 }
-              : item;
+              : {
+                  ...item,
+                  sources: (item as { item_sources?: typeof item.sources }).item_sources ?? item.sources,
+                };
           }),
         })),
       })),

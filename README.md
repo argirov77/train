@@ -4,7 +4,7 @@
 
 ## Что нового
 
-- Новая структура данных: sections/topics/items/sources/questions/activity_log.
+- Новая структура данных: sections/topics/items/item_sources/questions/user_item_progress/user_xp_transactions.
 - Полностью переработанный UI: аккордеоны, прогресс-бары, inline источники и вопросы.
 - Геймификация: streak по дням активности.
 
@@ -20,7 +20,7 @@
 1. Открой Supabase SQL Editor.
 2. Выполни `supabase/schema.sql`.
 3. Выполни `supabase/seed.sql` для стартовых данных.
-4. Убедись, что функция `increment_activity(date)` создана.
+4. Убедись, что триггеры `trg_sync_user_item_progress_fields` и `trg_award_xp_on_item_completion` созданы.
 
 ## Локальный запуск
 

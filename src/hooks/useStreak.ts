@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { ActivityLog, StreakInfo } from '@/types';
 
-interface DailyAnalyticsRow {
+interface UserItemProgressRow {
+  id: string;
   user_id: string;
-  date: string;
-  items_done: number;
+  status: string;
+  completed_at: string | null;
+  last_seen_at: string | null;
 }
 
 function shiftDate(date: string, days: number): string {
@@ -59,28 +61,25 @@ export function useStreak() {
       return;
     }
 
-    const { data: analyticsData, error: analyticsError } = await supabase
-      .from('progress_analytics_by_day')
-      .select('user_id, date, items_done')
+    const { data: progressData, error: progressError } = await supabase
+      .from('user_item_progress')
+      .select('id, user_id, status, completed_at, last_seen_at')
       .eq('user_id', userId)
-      .order('date', { ascending: false });
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false });
 
-    let rows: ActivityLog[] = [];
-    if (analyticsError) {
-      const { data } = await supabase
-        .from('activity_log')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false });
-      rows = (data ?? []) as ActivityLog[];
-    } else {
-      rows = ((analyticsData ?? []) as DailyAnalyticsRow[]).map((row) => ({
-        id: `${row.user_id}-${row.date}`,
-        user_id: row.user_id,
-        date: row.date,
-        items_done: row.items_done ?? 0,
-      }));
+    if (progressError) {
+      throw progressError;
     }
+
+    const rows = ((progressData ?? []) as UserItemProgressRow[])
+      .filter((row) => row.completed_at || row.last_seen_at)
+      .map((row) => ({
+        id: row.id,
+        user_id: row.user_id,
+        date: (row.completed_at ?? row.last_seen_at ?? '').split('T')[0],
+        items_done: 1,
+      })) as ActivityLog[];
 
     setLogs(rows);
     setStreak(calcStreak(rows));

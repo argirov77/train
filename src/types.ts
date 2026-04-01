@@ -12,8 +12,11 @@ export interface Question {
   id: string;
   item_id: string;
   text: string;
+  answer?: string | null;
+  explanation?: string | null;
+  difficulty?: number | null;
+  question_type?: string | null;
   position: number;
-  options?: QuestionOption[];
 }
 
 export interface QuestionOption {
@@ -29,6 +32,9 @@ export interface Item {
   id: string;
   topic_id: string;
   title: string;
+  content?: string | null;
+  item_type?: string | null;
+  estimated_minutes?: number | null;
   position: number;
   checked: boolean;
   checked_at: string | null;
@@ -66,8 +72,10 @@ export interface ActivityLog {
 
 export interface UserProgress {
   item_id: string;
-  is_completed: boolean;
+  status: string;
   completed_at: string | null;
+  last_seen_at: string | null;
+  completion_percent: number;
 }
 
 export interface StreakInfo {

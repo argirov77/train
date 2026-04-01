@@ -15,25 +15,7 @@ export function useQuestions(refetch: () => Promise<void>) {
     await refetch();
   };
 
-  const addQuestionOption = async (
-    questionId: string,
-    optionText: string,
-    isCorrect: boolean,
-    position: number,
-    explanation?: string,
-  ) => {
-    if (!supabase) return;
-    const { error } = await supabase.from('question_options').insert({
-      question_id: questionId,
-      option_text: optionText,
-      is_correct: isCorrect,
-      position,
-      explanation,
-    });
-    if (error) throw error;
-  };
-
-  const recordAttempt = async (questionId: string, selectedOptionId: string | null, isCorrect: boolean, responseTimeMs?: number) => {
+  const recordAttempt = async (questionId: string, userAnswer: string, isCorrect: boolean, responseTimeMs?: number) => {
     if (!supabase) return;
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
@@ -43,12 +25,13 @@ export function useQuestions(refetch: () => Promise<void>) {
     const { error } = await supabase.from('question_attempts').insert({
       user_id: userId,
       question_id: questionId,
-      selected_option_id: selectedOptionId,
+      user_answer: userAnswer,
       is_correct: isCorrect,
+      score: isCorrect ? 1 : 0,
       response_time_ms: responseTimeMs,
     });
     if (error) throw error;
   };
 
-  return { addQuestion, deleteQuestion, addQuestionOption, recordAttempt };
+  return { addQuestion, deleteQuestion, recordAttempt };
 }
