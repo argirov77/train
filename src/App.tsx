@@ -50,8 +50,12 @@ export default function App() {
     },
     onDeleteTopic: deleteTopic,
     onToggle: async (itemId: string, checked: boolean) => {
-      await toggleCheck(itemId, checked);
-      await refetchStreak();
+      try {
+        await toggleCheck(itemId, checked);
+        await refetchStreak();
+      } catch (e) {
+        console.error('toggleCheck failed:', e);
+      }
     },
     onDeleteItem: deleteItem,
     addSource,
