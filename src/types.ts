@@ -34,6 +34,8 @@ export interface Item {
   checked_at: string | null;
   sources: Source[];
   questions: Question[];
+  isLocked?: boolean;
+  lockReason?: string;
 }
 
 export interface Topic {
@@ -43,6 +45,8 @@ export interface Topic {
   description?: string;
   position: number;
   items: Item[];
+  isLocked?: boolean;
+  lockReason?: string;
 }
 
 export interface Section {
