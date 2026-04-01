@@ -13,6 +13,16 @@ export interface Question {
   item_id: string;
   text: string;
   position: number;
+  options?: QuestionOption[];
+}
+
+export interface QuestionOption {
+  id: string;
+  question_id: string;
+  option_text: string;
+  is_correct: boolean;
+  explanation?: string;
+  position: number;
 }
 
 export interface Item {
@@ -52,6 +62,12 @@ export interface ActivityLog {
   user_id: string;
   date: string;
   items_done: number;
+}
+
+export interface UserProgress {
+  item_id: string;
+  is_completed: boolean;
+  completed_at: string | null;
 }
 
 export interface StreakInfo {
