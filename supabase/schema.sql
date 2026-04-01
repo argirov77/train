@@ -69,6 +69,7 @@ CREATE TABLE user_item_progress (
   completed_at       timestamptz,
   last_seen_at       timestamptz,
   completion_percent numeric NOT NULL DEFAULT 0,
+  updated_at         timestamptz NOT NULL DEFAULT now(),
   UNIQUE (user_id, item_id),
   CHECK (completion_percent >= 0 AND completion_percent <= 100)
 );
@@ -115,6 +116,7 @@ CREATE INDEX idx_user_xp_transactions_user_created ON user_xp_transactions(user_
 CREATE OR REPLACE FUNCTION sync_user_item_progress_fields()
 RETURNS trigger AS $$
 BEGIN
+  NEW.updated_at := now();
   NEW.last_seen_at := COALESCE(NEW.last_seen_at, now());
 
   IF NEW.status IN ('in_progress', 'completed') THEN
@@ -157,6 +159,80 @@ CREATE TRIGGER trg_award_xp_on_item_completion
 AFTER INSERT OR UPDATE ON user_item_progress
 FOR EACH ROW
 EXECUTE FUNCTION award_xp_on_item_completion();
+
+-- RPC: mark item as in-progress (or revert from completed)
+CREATE OR REPLACE FUNCTION start_item(p_user_id uuid, p_item_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+BEGIN
+  INSERT INTO user_item_progress (user_id, item_id, status, started_at, last_seen_at)
+  VALUES (p_user_id, p_item_id, 'in_progress', now(), now())
+  ON CONFLICT (user_id, item_id)
+  DO UPDATE SET
+    status = 'in_progress',
+    completed_at = NULL,
+    completion_percent = 0,
+    last_seen_at = now();
+END;
+$$;
+
+-- RPC: mark item as completed, return XP info
+CREATE OR REPLACE FUNCTION complete_item(p_user_id uuid, p_item_id uuid)
+RETURNS TABLE(xp_awarded integer, already_completed boolean)
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+DECLARE
+  v_already_completed boolean;
+BEGIN
+  SELECT (status = 'completed') INTO v_already_completed
+  FROM user_item_progress
+  WHERE user_id = p_user_id AND item_id = p_item_id;
+
+  v_already_completed := COALESCE(v_already_completed, false);
+
+  INSERT INTO user_item_progress (user_id, item_id, status, completed_at, last_seen_at, completion_percent)
+  VALUES (p_user_id, p_item_id, 'completed', now(), now(), 100)
+  ON CONFLICT (user_id, item_id)
+  DO UPDATE SET
+    status = 'completed',
+    completed_at = COALESCE(user_item_progress.completed_at, now()),
+    last_seen_at = now(),
+    completion_percent = 100;
+
+  RETURN QUERY SELECT
+    CASE WHEN v_already_completed THEN 0 ELSE 10 END::integer,
+    v_already_completed;
+END;
+$$;
+
+-- RPC: record a question attempt
+CREATE OR REPLACE FUNCTION record_question_attempt(
+  p_user_id uuid,
+  p_question_id uuid,
+  p_user_answer text,
+  p_is_correct boolean,
+  p_score numeric DEFAULT NULL,
+  p_response_time_ms integer DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+DECLARE
+  v_attempt_id uuid;
+BEGIN
+  INSERT INTO question_attempts (user_id, question_id, user_answer, is_correct, score, response_time_ms)
+  VALUES (p_user_id, p_question_id, p_user_answer, p_is_correct,
+          COALESCE(p_score, CASE WHEN p_is_correct THEN 1 ELSE 0 END),
+          p_response_time_ms)
+  RETURNING id INTO v_attempt_id;
+
+  RETURN v_attempt_id;
+END;
+$$;
 
 ALTER TABLE sections             DISABLE ROW LEVEL SECURITY;
 ALTER TABLE topics               DISABLE ROW LEVEL SECURITY;

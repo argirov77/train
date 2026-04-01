@@ -22,13 +22,13 @@ export function useQuestions(refetch: () => Promise<void>) {
     const userId = userData.user?.id;
     if (!userId) return;
 
-    const { error } = await supabase.from('question_attempts').insert({
-      user_id: userId,
-      question_id: questionId,
-      user_answer: userAnswer,
-      is_correct: isCorrect,
-      score: isCorrect ? 1 : 0,
-      response_time_ms: responseTimeMs,
+    const { error } = await supabase.rpc('record_question_attempt', {
+      p_user_id: userId,
+      p_question_id: questionId,
+      p_user_answer: userAnswer,
+      p_is_correct: isCorrect,
+      p_score: isCorrect ? 1 : 0,
+      p_response_time_ms: responseTimeMs ?? null,
     });
     if (error) throw error;
   };

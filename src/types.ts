@@ -83,3 +83,8 @@ export interface StreakInfo {
   longest: number;
   today: boolean;
 }
+
+export interface CompleteItemResult {
+  xp_awarded: number;
+  already_completed: boolean;
+}
