@@ -108,10 +108,8 @@ export function useSections() {
 
     const normalized = normalizeSections(data as Section[]);
 
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) throw userError;
-
-    const userId = userData.user?.id;
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
 
     if (!userId) {
       setSections(applyLocking(normalized));
@@ -135,7 +133,11 @@ export function useSections() {
       .eq('user_id', userId)
       .in('item_id', itemIds);
 
-    if (progressError) throw progressError;
+    if (progressError) {
+      setSections(applyLocking(normalized));
+      setLoading(false);
+      return;
+    }
 
     const progressRows = (progressData ?? []) as UserProgress[];
     const progressMap = new Map(progressRows.map((row) => [row.item_id, row]));
