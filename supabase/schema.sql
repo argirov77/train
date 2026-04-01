@@ -50,15 +50,17 @@ CREATE TABLE questions (
 
 CREATE TABLE activity_log (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  date       date NOT NULL UNIQUE,
-  items_done int  NOT NULL DEFAULT 0
+  user_id    uuid NOT NULL,
+  date       date NOT NULL,
+  items_done int  NOT NULL DEFAULT 0,
+  UNIQUE (user_id, date)
 );
 
-CREATE OR REPLACE FUNCTION increment_activity(log_date date)
+CREATE OR REPLACE FUNCTION increment_activity(log_user_id uuid, log_date date)
 RETURNS void AS $$
-  INSERT INTO activity_log (date, items_done)
-  VALUES (log_date, 1)
-  ON CONFLICT (date)
+  INSERT INTO activity_log (user_id, date, items_done)
+  VALUES (log_user_id, log_date, 1)
+  ON CONFLICT (user_id, date)
   DO UPDATE SET items_done = activity_log.items_done + 1;
 $$ LANGUAGE sql;
 

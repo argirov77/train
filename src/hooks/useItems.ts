@@ -29,8 +29,13 @@ export function useItems(setSections: Dispatch<SetStateAction<Section[]>>, refet
     }
 
     if (checked) {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      const userId = userData.user?.id;
+      if (!userId) return;
+
       const today = new Date().toISOString().split('T')[0];
-      const { error: rpcError } = await supabase.rpc('increment_activity', { log_date: today });
+      const { error: rpcError } = await supabase.rpc('increment_activity', { log_user_id: userId, log_date: today });
       if (rpcError) throw rpcError;
     }
   };
