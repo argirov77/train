@@ -24,15 +24,15 @@ export function useItems(setSections: Dispatch<SetStateAction<Section[]>>, refet
     if (!userId) return;
 
     const { data: currentProgress, error: currentProgressError } = await supabase
-      .from('user_progress')
-      .select('is_completed, completed_at')
+      .from('user_item_progress')
+      .select('status, completed_at, completion_percent, started_at')
       .eq('user_id', userId)
       .eq('item_id', itemId)
       .maybeSingle();
 
     if (currentProgressError) throw currentProgressError;
 
-    const previousChecked = currentProgress?.is_completed ?? false;
+    const previousChecked = currentProgress?.status === 'completed';
     const checkedAt = checked
       ? previousChecked && currentProgress?.completed_at
         ? currentProgress.completed_at
@@ -49,13 +49,15 @@ export function useItems(setSections: Dispatch<SetStateAction<Section[]>>, refet
       })),
     );
 
-    const { error } = await supabase.from('user_progress').upsert(
+    const { error } = await supabase.from('user_item_progress').upsert(
       {
         user_id: userId,
         item_id: itemId,
-        is_completed: checked,
+        status: checked ? 'completed' : 'in_progress',
+        started_at: currentProgress?.started_at ?? new Date().toISOString(),
         completed_at: checkedAt,
-        last_reviewed_at: new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
+        completion_percent: checked ? 100 : 0,
       },
       { onConflict: 'user_id,item_id' },
     );
@@ -63,15 +65,6 @@ export function useItems(setSections: Dispatch<SetStateAction<Section[]>>, refet
     if (error) {
       await refetch();
       throw error;
-    }
-
-    if (!previousChecked && checked) {
-      const { error: rpcError } = await supabase.rpc('complete_item', {
-        p_user_id: userId,
-        p_item_id: itemId,
-        p_completed_at: checkedAt,
-      });
-      if (rpcError) throw rpcError;
     }
   };
 

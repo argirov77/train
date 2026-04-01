@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Safe re-run: clean learning content while keeping schema
-TRUNCATE TABLE sources, questions, items, topics, sections RESTART IDENTITY CASCADE;
+TRUNCATE TABLE item_sources, questions, items, topics, sections RESTART IDENTITY CASCADE;
 
 WITH sections_seed(position, title, description) AS (
   VALUES
@@ -277,7 +277,7 @@ WITH sources_seed(item_title, label, url, kind) AS (
     ('W12: Write e2e tests for compose + simulators + DB/API asserts', 'FastAPI testing tutorial', 'https://fastapi.tiangolo.com/tutorial/testing/', 'docs'),
     ('W12: Explain retry pattern risks during prolonged outages', 'Retry pattern (Microsoft)', 'https://learn.microsoft.com/azure/architecture/patterns/retry', 'guidance')
 )
-INSERT INTO sources (item_id, label, url, kind)
+INSERT INTO item_sources (item_id, label, url, kind)
 SELECT i.id, s.label, s.url, s.kind
 FROM sources_seed s
 JOIN items i ON i.title = s.item_title;
