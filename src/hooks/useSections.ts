@@ -46,8 +46,9 @@ export function useSections() {
       `)
       .order('position')
       .order('position', { referencedTable: 'topics' })
-      .order('position', { referencedTable: 'items' })
-      .order('position', { referencedTable: 'questions' });
+      .order('position', { referencedTable: 'topics.items' })
+      .order('position', { referencedTable: 'topics.items.sources' })
+      .order('position', { referencedTable: 'topics.items.questions' });
 
     if (fetchError) {
       setError(fetchError.message);
