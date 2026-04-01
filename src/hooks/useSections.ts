@@ -14,15 +14,30 @@ const normalizeSections = (data: Section[] | null): Section[] =>
 
     return {
       ...section,
-      topics: topics.map((topic, topicIndex) => {
+      topics: topics.map((topic) => {
         const sortedItems = byPosition(topic.items ?? []).map((item) => ({
           ...item,
           sources: item.sources ?? (item as { item_sources?: Section['topics'][number]['items'][number]['sources'] }).item_sources ?? [],
           questions: byPosition(item.questions ?? []),
         }));
 
+        return {
+          ...topic,
+          items: sortedItems,
+        };
+      }),
+    };
+  });
+
+const applyLocking = (sections: Section[]): Section[] =>
+  sections.map((section) => {
+    const topics = section.topics;
+
+    return {
+      ...section,
+      topics: topics.map((topic, topicIndex) => {
         const previousTopic = topics[topicIndex - 1];
-        const previousTopicItems = byPosition(previousTopic?.items ?? []);
+        const previousTopicItems = previousTopic?.items ?? [];
         const previousDone = previousTopicItems.filter((item) => item.checked).length;
         const previousProgress =
           previousTopicItems.length === 0 ? 0 : previousDone / previousTopicItems.length;
@@ -32,8 +47,8 @@ const normalizeSections = (data: Section[] | null): Section[] =>
           ...topic,
           isLocked: topicLocked,
           lockReason: topicLocked ? TOPIC_LOCK_REASON : undefined,
-          items: sortedItems.map((item, itemIndex) => {
-            const previousItem = sortedItems[itemIndex - 1];
+          items: topic.items.map((item, itemIndex) => {
+            const previousItem = topic.items[itemIndex - 1];
             const itemLocked = topicLocked || (itemIndex > 0 && !previousItem?.checked);
 
             return {
@@ -99,7 +114,7 @@ export function useSections() {
     const userId = userData.user?.id;
 
     if (!userId) {
-      setSections(normalized);
+      setSections(applyLocking(normalized));
       setLoading(false);
       return;
     }
@@ -109,7 +124,7 @@ export function useSections() {
     );
 
     if (itemIds.length === 0) {
-      setSections(normalized);
+      setSections(applyLocking(normalized));
       setLoading(false);
       return;
     }
@@ -125,29 +140,28 @@ export function useSections() {
     const progressRows = (progressData ?? []) as UserProgress[];
     const progressMap = new Map(progressRows.map((row) => [row.item_id, row]));
 
-    setSections(
-      normalized.map((section) => ({
-        ...section,
-        topics: section.topics.map((topic) => ({
-          ...topic,
-          items: topic.items.map((item) => {
-            const progress = progressMap.get(item.id);
-            return progress
-              ? {
-                  ...item,
-                  checked: progress.status === 'completed',
-                  checked_at: progress.completed_at,
-                  sources: (item as { item_sources?: typeof item.sources }).item_sources ?? item.sources,
-                }
-              : {
-                  ...item,
-                  sources: (item as { item_sources?: typeof item.sources }).item_sources ?? item.sources,
-                };
-          }),
-        })),
+    const withProgress = normalized.map((section) => ({
+      ...section,
+      topics: section.topics.map((topic) => ({
+        ...topic,
+        items: topic.items.map((item) => {
+          const progress = progressMap.get(item.id);
+          return progress
+            ? {
+                ...item,
+                checked: progress.status === 'completed',
+                checked_at: progress.completed_at,
+                sources: (item as { item_sources?: typeof item.sources }).item_sources ?? item.sources,
+              }
+            : {
+                ...item,
+                sources: (item as { item_sources?: typeof item.sources }).item_sources ?? item.sources,
+              };
+        }),
       })),
-    );
+    }));
 
+    setSections(applyLocking(withProgress));
     setLoading(false);
   }, []);
 
