@@ -4,18 +4,46 @@ import type { Section } from '@/types';
 
 const byPosition = <T extends { position: number }>(items: T[]) => [...items].sort((a, b) => a.position - b.position);
 
+const TOPIC_LOCK_REASON = 'Завершите предыдущую тему минимум на 50%';
+const ITEM_LOCK_REASON = 'Завершите предыдущий пункт';
+
 const normalizeSections = (data: Section[] | null): Section[] =>
-  byPosition(data ?? []).map((section) => ({
-    ...section,
-    topics: byPosition(section.topics ?? []).map((topic) => ({
-      ...topic,
-      items: byPosition(topic.items ?? []).map((item) => ({
-        ...item,
-        sources: item.sources ?? [],
-        questions: byPosition(item.questions ?? []),
-      })),
-    })),
-  }));
+  byPosition(data ?? []).map((section) => {
+    const topics = byPosition(section.topics ?? []);
+
+    return {
+      ...section,
+      topics: topics.map((topic, topicIndex) => {
+        const sortedItems = byPosition(topic.items ?? []).map((item) => ({
+          ...item,
+          sources: item.sources ?? [],
+          questions: byPosition(item.questions ?? []),
+        }));
+
+        const previousTopic = topics[topicIndex - 1];
+        const previousTopicItems = byPosition(previousTopic?.items ?? []);
+        const previousDone = previousTopicItems.filter((item) => item.checked).length;
+        const previousProgress = previousTopicItems.length === 0 ? 0 : previousDone / previousTopicItems.length;
+        const topicLocked = topicIndex > 0 && previousProgress < 0.5;
+
+        return {
+          ...topic,
+          isLocked: topicLocked,
+          lockReason: topicLocked ? TOPIC_LOCK_REASON : undefined,
+          items: sortedItems.map((item, itemIndex) => {
+            const previousItem = sortedItems[itemIndex - 1];
+            const itemLocked = topicLocked || (itemIndex > 0 && !previousItem?.checked);
+
+            return {
+              ...item,
+              isLocked: itemLocked,
+              lockReason: topicLocked ? TOPIC_LOCK_REASON : itemLocked ? ITEM_LOCK_REASON : undefined,
+            };
+          }),
+        };
+      }),
+    };
+  });
 
 export function useSections() {
   const [sections, setSections] = useState<Section[]>([]);
