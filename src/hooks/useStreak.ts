@@ -44,7 +44,20 @@ export function useStreak() {
 
   const refetch = useCallback(async () => {
     if (!supabase) return;
-    const { data } = await supabase.from('activity_log').select('*').order('date', { ascending: false });
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+    const userId = userData.user?.id;
+    if (!userId) {
+      setLogs([]);
+      setStreak({ current: 0, longest: 0, today: false });
+      return;
+    }
+
+    const { data } = await supabase
+      .from('activity_log')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
     const rows = (data ?? []) as ActivityLog[];
     setLogs(rows);
     setStreak(calcStreak(rows));
