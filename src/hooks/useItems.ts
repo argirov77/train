@@ -18,18 +18,24 @@ export function useItems(setSections: Dispatch<SetStateAction<Section[]>>, refet
       return;
     }
 
-    const { data: currentItem, error: currentItemError } = await supabase
-      .from('items')
-      .select('checked, checked_at')
-      .eq('id', itemId)
-      .single();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+    const userId = userData.user?.id;
+    if (!userId) return;
 
-    if (currentItemError) throw currentItemError;
+    const { data: currentProgress, error: currentProgressError } = await supabase
+      .from('user_progress')
+      .select('is_completed, completed_at')
+      .eq('user_id', userId)
+      .eq('item_id', itemId)
+      .maybeSingle();
 
-    const previousChecked = currentItem.checked;
+    if (currentProgressError) throw currentProgressError;
+
+    const previousChecked = currentProgress?.is_completed ?? false;
     const checkedAt = checked
-      ? previousChecked && currentItem.checked_at
-        ? currentItem.checked_at
+      ? previousChecked && currentProgress?.completed_at
+        ? currentProgress.completed_at
         : new Date().toISOString()
       : null;
 
@@ -43,7 +49,16 @@ export function useItems(setSections: Dispatch<SetStateAction<Section[]>>, refet
       })),
     );
 
-    const { error } = await supabase.from('items').update({ checked, checked_at: checkedAt }).eq('id', itemId);
+    const { error } = await supabase.from('user_progress').upsert(
+      {
+        user_id: userId,
+        item_id: itemId,
+        is_completed: checked,
+        completed_at: checkedAt,
+        last_reviewed_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,item_id' },
+    );
 
     if (error) {
       await refetch();
@@ -51,16 +66,10 @@ export function useItems(setSections: Dispatch<SetStateAction<Section[]>>, refet
     }
 
     if (!previousChecked && checked) {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      const userId = userData.user?.id;
-      if (!userId) return;
-
-      const today = new Date().toISOString().split('T')[0];
-      const { error: rpcError } = await supabase.rpc('increment_activity', {
-        log_user_id: userId,
-        log_item_id: itemId,
-        log_date: today,
+      const { error: rpcError } = await supabase.rpc('complete_item', {
+        p_user_id: userId,
+        p_item_id: itemId,
+        p_completed_at: checkedAt,
       });
       if (rpcError) throw rpcError;
     }

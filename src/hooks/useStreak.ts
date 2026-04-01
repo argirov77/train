@@ -2,6 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { ActivityLog, StreakInfo } from '@/types';
 
+interface DailyAnalyticsRow {
+  user_id: string;
+  date: string;
+  items_done: number;
+}
+
 function shiftDate(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -53,12 +59,29 @@ export function useStreak() {
       return;
     }
 
-    const { data } = await supabase
-      .from('activity_log')
-      .select('*')
+    const { data: analyticsData, error: analyticsError } = await supabase
+      .from('progress_analytics_by_day')
+      .select('user_id, date, items_done')
       .eq('user_id', userId)
       .order('date', { ascending: false });
-    const rows = (data ?? []) as ActivityLog[];
+
+    let rows: ActivityLog[] = [];
+    if (analyticsError) {
+      const { data } = await supabase
+        .from('activity_log')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
+      rows = (data ?? []) as ActivityLog[];
+    } else {
+      rows = ((analyticsData ?? []) as DailyAnalyticsRow[]).map((row) => ({
+        id: `${row.user_id}-${row.date}`,
+        user_id: row.user_id,
+        date: row.date,
+        items_done: row.items_done ?? 0,
+      }));
+    }
+
     setLogs(rows);
     setStreak(calcStreak(rows));
   }, []);
