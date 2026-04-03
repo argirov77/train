@@ -8,19 +8,21 @@ interface SectionDetailProps {
   onAddItem: (topicId: string) => void;
   onDeleteSection: (id: string) => Promise<void>;
   onDeleteTopic: (id: string) => Promise<void>;
-  onToggle: (itemId: string, checked: boolean) => Promise<void>;
+  onToggle: (itemId: string, checked: boolean) => Promise<{ xpAwarded?: number }>;
   onDeleteItem: (id: string) => Promise<void>;
   addSource: (itemId: string, label: string, url: string, kind: SourceKind) => Promise<void>;
   deleteSource: (id: string) => Promise<void>;
   addQuestion: (itemId: string, text: string, position: number) => Promise<void>;
   deleteQuestion: (id: string) => Promise<void>;
+  recordAttempt: (questionId: string, userAnswer: string, isCorrect: boolean, responseTimeMs?: number) => Promise<void>;
 }
 
 export function SectionDetail(props: SectionDetailProps) {
-  const { section, onAddTopic, onAddItem, onDeleteSection, onDeleteTopic, onToggle, onDeleteItem, addSource, deleteSource, addQuestion, deleteQuestion } = props;
+  const { section, onAddTopic, onAddItem, onDeleteSection, onDeleteTopic, onToggle, onDeleteItem, addSource, deleteSource, addQuestion, deleteQuestion, recordAttempt } = props;
 
   const items = section.topics.flatMap((topic) => topic.items);
   const done = items.filter((item) => item.checked).length;
+  const remaining = items.filter((i) => !i.checked).reduce((sum, i) => sum + (i.estimated_minutes ?? 0), 0);
 
   return (
     <div className="space-y-4">
@@ -28,6 +30,7 @@ export function SectionDetail(props: SectionDetailProps) {
         <h2 className="text-xl font-semibold flex-1">{section.title}</h2>
         <ProgressBar done={done} total={items.length} />
         <span className="text-sm text-slate-400">({done}/{items.length})</span>
+        {remaining > 0 && <span className="text-xs text-slate-500">~{remaining} мин</span>}
         <button onClick={() => onAddTopic(section.id)} className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-sm transition-colors">+ тема</button>
         <button onClick={() => void onDeleteSection(section.id)} className="text-red-400 hover:text-red-300 transition-colors px-1">×</button>
       </div>
@@ -49,6 +52,7 @@ export function SectionDetail(props: SectionDetailProps) {
             deleteSource={deleteSource}
             addQuestion={addQuestion}
             deleteQuestion={deleteQuestion}
+            recordAttempt={recordAttempt}
           />
         ))}
       </div>

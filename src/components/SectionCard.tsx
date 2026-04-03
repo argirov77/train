@@ -9,16 +9,17 @@ interface SectionCardProps {
   onAddItem: (topicId: string) => void;
   onDeleteSection: (id: string) => Promise<void>;
   onDeleteTopic: (id: string) => Promise<void>;
-  onToggle: (itemId: string, checked: boolean) => Promise<void>;
+  onToggle: (itemId: string, checked: boolean) => Promise<{ xpAwarded?: number }>;
   onDeleteItem: (id: string) => Promise<void>;
   addSource: (itemId: string, label: string, url: string, kind: SourceKind) => Promise<void>;
   deleteSource: (id: string) => Promise<void>;
   addQuestion: (itemId: string, text: string, position: number) => Promise<void>;
   deleteQuestion: (id: string) => Promise<void>;
+  recordAttempt: (questionId: string, userAnswer: string, isCorrect: boolean, responseTimeMs?: number) => Promise<void>;
 }
 
 export function SectionCard(props: SectionCardProps) {
-  const { section, onAddTopic, onAddItem, onDeleteSection, onDeleteTopic, onToggle, onDeleteItem, addSource, deleteSource, addQuestion, deleteQuestion } = props;
+  const { section, onAddTopic, onAddItem, onDeleteSection, onDeleteTopic, onToggle, onDeleteItem, addSource, deleteSource, addQuestion, deleteQuestion, recordAttempt } = props;
   const [open, setOpen] = useState(false);
 
   const items = section.topics.flatMap((topic) => topic.items);
@@ -47,6 +48,7 @@ export function SectionCard(props: SectionCardProps) {
             deleteSource={deleteSource}
             addQuestion={addQuestion}
             deleteQuestion={deleteQuestion}
+            recordAttempt={recordAttempt}
           />
         ))}
       </div>
