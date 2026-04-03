@@ -1,24 +1,43 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AddModal } from '@/components/AddModal';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Header } from '@/components/Header';
+import { SearchModal } from '@/components/SearchModal';
 import { Sidebar } from '@/components/Sidebar';
 import { SectionDetail } from '@/components/SectionDetail';
+import { ToastProvider } from '@/components/Toast';
+import { useToast } from '@/hooks/useToast';
 import { useItems } from '@/hooks/useItems';
 import { useQuestions } from '@/hooks/useQuestions';
 import { useSections } from '@/hooks/useSections';
 import { useSources } from '@/hooks/useSources';
 import { useStreak } from '@/hooks/useStreak';
 
-export default function App() {
+function AppContent() {
   const { sections, setSections, loading, error, refetch, addSection, addTopic, deleteSection, deleteTopic } = useSections();
   const { streak, refetch: refetchStreak } = useStreak();
   const { toggleCheck, addItem, deleteItem } = useItems(setSections, refetch);
   const { addSource, deleteSource } = useSources(refetch);
-  const { addQuestion, deleteQuestion } = useQuestions(refetch);
+  const { addQuestion, deleteQuestion, recordAttempt } = useQuestions(refetch);
+  const showToast = useToast();
 
   const [modal, setModal] = useState<{ mode: 'section' | 'topic' | 'item'; parentId?: string } | null>(null);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [confirm, setConfirm] = useState<{ message: string; onConfirm: () => Promise<void> } | null>(null);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   // Auto-select first section on load or when active section is deleted
   useEffect(() => {
@@ -42,26 +61,78 @@ export default function App() {
     return { done, total: items.length };
   }, [sections]);
 
+  const withConfirm = (message: string, action: () => Promise<void>) => {
+    setConfirm({ message, onConfirm: action });
+  };
+
   const crudProps = {
     onAddTopic: (sectionId: string) => setModal({ mode: 'topic', parentId: sectionId }),
     onAddItem: (topicId: string) => setModal({ mode: 'item', parentId: topicId }),
     onDeleteSection: async (id: string) => {
-      await deleteSection(id);
+      const s = sections.find((sec) => sec.id === id);
+      withConfirm(`Удалить раздел «${s?.title ?? ''}»? Все темы и пункты внутри будут удалены.`, async () => {
+        try {
+          await deleteSection(id);
+          showToast('Раздел удален');
+        } catch (e) { showToast(`Ошибка: ${e instanceof Error ? e.message : 'неизвестная'}`, 'error'); }
+        setConfirm(null);
+      });
     },
-    onDeleteTopic: deleteTopic,
+    onDeleteTopic: async (id: string) => {
+      const t = sections.flatMap((s) => s.topics).find((topic) => topic.id === id);
+      withConfirm(`Удалить тему «${t?.title ?? ''}»? Все пункты внутри будут удалены.`, async () => {
+        try {
+          await deleteTopic(id);
+          showToast('Тема удалена');
+        } catch (e) { showToast(`Ошибка: ${e instanceof Error ? e.message : 'неизвестная'}`, 'error'); }
+        setConfirm(null);
+      });
+    },
     onToggle: async (itemId: string, checked: boolean) => {
       try {
-        await toggleCheck(itemId, checked);
+        const result = await toggleCheck(itemId, checked);
         await refetchStreak();
+        return result;
       } catch (e) {
-        console.error('toggleCheck failed:', e);
+        showToast(`Ошибка: ${e instanceof Error ? e.message : 'неизвестная'}`, 'error');
+        return {};
       }
     },
-    onDeleteItem: deleteItem,
-    addSource,
-    deleteSource,
-    addQuestion,
-    deleteQuestion,
+    onDeleteItem: async (id: string) => {
+      try {
+        await deleteItem(id);
+        showToast('Пункт удален');
+      } catch (e) { showToast(`Ошибка: ${e instanceof Error ? e.message : 'неизвестная'}`, 'error'); }
+    },
+    addSource: async (itemId: string, label: string, url: string, kind: Parameters<typeof addSource>[3]) => {
+      try {
+        await addSource(itemId, label, url, kind);
+        showToast('Источник добавлен');
+      } catch (e) { showToast(`Ошибка: ${e instanceof Error ? e.message : 'неизвестная'}`, 'error'); }
+    },
+    deleteSource: async (id: string) => {
+      try {
+        await deleteSource(id);
+        showToast('Источник удален');
+      } catch (e) { showToast(`Ошибка: ${e instanceof Error ? e.message : 'неизвестная'}`, 'error'); }
+    },
+    addQuestion: async (itemId: string, text: string, position: number) => {
+      try {
+        await addQuestion(itemId, text, position);
+        showToast('Вопрос добавлен');
+      } catch (e) { showToast(`Ошибка: ${e instanceof Error ? e.message : 'неизвестная'}`, 'error'); }
+    },
+    deleteQuestion: async (id: string) => {
+      try {
+        await deleteQuestion(id);
+        showToast('Вопрос удален');
+      } catch (e) { showToast(`Ошибка: ${e instanceof Error ? e.message : 'неизвестная'}`, 'error'); }
+    },
+    recordAttempt: async (questionId: string, userAnswer: string, isCorrect: boolean, responseTimeMs?: number) => {
+      try {
+        await recordAttempt(questionId, userAnswer, isCorrect, responseTimeMs);
+      } catch (e) { showToast(`Ошибка записи ответа: ${e instanceof Error ? e.message : 'неизвестная'}`, 'error'); }
+    },
   };
 
   return (
@@ -72,6 +143,7 @@ export default function App() {
           total={totals.total}
           streak={streak}
           onToggleSidebar={() => setSidebarOpen((v) => !v)}
+          onOpenSearch={() => setSearchOpen(true)}
         />
 
         {error && <div className="rounded border border-red-500/30 bg-red-500/10 p-3 text-red-300 text-sm">{error}</div>}
@@ -162,18 +234,47 @@ export default function App() {
         mode={modal?.mode ?? 'section'}
         title={modal?.mode === 'topic' ? 'Добавить тему' : modal?.mode === 'item' ? 'Добавить пункт' : 'Добавить раздел'}
         onClose={() => setModal(null)}
-        onSubmit={async ({ title, description }) => {
+        onSubmit={async ({ title, description, estimated_minutes }) => {
           if (!modal) return;
-          if (modal.mode === 'section') {
-            await addSection(title, description);
-          } else if (modal.mode === 'topic' && modal.parentId) {
-            await addTopic(modal.parentId, title, description);
-          } else if (modal.mode === 'item' && modal.parentId) {
-            const topic = sections.flatMap((s) => s.topics).find((t) => t.id === modal.parentId);
-            await addItem(modal.parentId, title, topic?.items.length ?? 0);
+          try {
+            if (modal.mode === 'section') {
+              await addSection(title, description);
+              showToast('Раздел добавлен');
+            } else if (modal.mode === 'topic' && modal.parentId) {
+              await addTopic(modal.parentId, title, description);
+              showToast('Тема добавлена');
+            } else if (modal.mode === 'item' && modal.parentId) {
+              const topic = sections.flatMap((s) => s.topics).find((t) => t.id === modal.parentId);
+              await addItem(modal.parentId, title, topic?.items.length ?? 0, estimated_minutes);
+              showToast('Пункт добавлен');
+            }
+          } catch (e) {
+            showToast(`Ошибка: ${e instanceof Error ? e.message : 'неизвестная'}`, 'error');
           }
         }}
       />
+
+      <SearchModal
+        open={searchOpen}
+        sections={sections}
+        onClose={() => setSearchOpen(false)}
+        onNavigate={(sectionId) => setActiveSectionId(sectionId)}
+      />
+
+      <ConfirmDialog
+        open={confirm !== null}
+        message={confirm?.message ?? ''}
+        onConfirm={confirm?.onConfirm ?? (async () => {})}
+        onCancel={() => setConfirm(null)}
+      />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }

@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, supabaseInitError } from '@/lib/supabase';
+import { getUserId } from '@/lib/userId';
 import type { Section, UserProgress } from '@/types';
 
 const byPosition = <T extends { position: number }>(items: T[]) =>
   [...items].sort((a, b) => a.position - b.position);
-
-const TOPIC_LOCK_REASON = 'Завершите предыдущую тему минимум на 50%';
-const ITEM_LOCK_REASON = 'Завершите предыдущий пункт';
 
 const normalizeSections = (data: Section[] | null): Section[] =>
   byPosition(data ?? []).map((section) => {
@@ -24,43 +22,6 @@ const normalizeSections = (data: Section[] | null): Section[] =>
         return {
           ...topic,
           items: sortedItems,
-        };
-      }),
-    };
-  });
-
-const applyLocking = (sections: Section[]): Section[] =>
-  sections.map((section) => {
-    const topics = section.topics;
-
-    return {
-      ...section,
-      topics: topics.map((topic, topicIndex) => {
-        const previousTopic = topics[topicIndex - 1];
-        const previousTopicItems = previousTopic?.items ?? [];
-        const previousDone = previousTopicItems.filter((item) => item.checked).length;
-        const previousProgress =
-          previousTopicItems.length === 0 ? 0 : previousDone / previousTopicItems.length;
-        const topicLocked = topicIndex > 0 && previousProgress < 0.5;
-
-        return {
-          ...topic,
-          isLocked: topicLocked,
-          lockReason: topicLocked ? TOPIC_LOCK_REASON : undefined,
-          items: topic.items.map((item, itemIndex) => {
-            const previousItem = topic.items[itemIndex - 1];
-            const itemLocked = topicLocked || (itemIndex > 0 && !previousItem?.checked);
-
-            return {
-              ...item,
-              isLocked: itemLocked,
-              lockReason: topicLocked
-                ? TOPIC_LOCK_REASON
-                : itemLocked
-                  ? ITEM_LOCK_REASON
-                  : undefined,
-            };
-          }),
         };
       }),
     };
@@ -108,21 +69,14 @@ export function useSections() {
 
     const normalized = normalizeSections(data as Section[]);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
-
-    if (!userId) {
-      setSections(applyLocking(normalized));
-      setLoading(false);
-      return;
-    }
+    const userId = await getUserId();
 
     const itemIds = normalized.flatMap((section) =>
       section.topics.flatMap((topic) => topic.items.map((item) => item.id)),
     );
 
     if (itemIds.length === 0) {
-      setSections(applyLocking(normalized));
+      setSections(normalized);
       setLoading(false);
       return;
     }
@@ -134,7 +88,7 @@ export function useSections() {
       .in('item_id', itemIds);
 
     if (progressError) {
-      setSections(applyLocking(normalized));
+      setSections(normalized);
       setLoading(false);
       return;
     }
@@ -163,7 +117,7 @@ export function useSections() {
       })),
     }));
 
-    setSections(applyLocking(withProgress));
+    setSections(withProgress);
     setLoading(false);
   }, []);
 

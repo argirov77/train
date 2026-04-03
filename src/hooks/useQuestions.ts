@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getUserId } from '@/lib/userId';
 
 export function useQuestions(refetch: () => Promise<void>) {
   const addQuestion = async (itemId: string, text: string, position: number) => {
@@ -17,10 +18,7 @@ export function useQuestions(refetch: () => Promise<void>) {
 
   const recordAttempt = async (questionId: string, userAnswer: string, isCorrect: boolean, responseTimeMs?: number) => {
     if (!supabase) return;
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) throw userError;
-    const userId = userData.user?.id;
-    if (!userId) return;
+    const userId = await getUserId();
 
     const { error } = await supabase.rpc('record_question_attempt', {
       p_user_id: userId,

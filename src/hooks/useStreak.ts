@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getUserId } from '@/lib/userId';
 import type { ActivityLog, StreakInfo } from '@/types';
 
 interface UserItemProgressRow {
@@ -52,14 +53,7 @@ export function useStreak() {
 
   const refetch = useCallback(async () => {
     if (!supabase) return;
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) throw userError;
-    const userId = userData.user?.id;
-    if (!userId) {
-      setLogs([]);
-      setStreak({ current: 0, longest: 0, today: false });
-      return;
-    }
+    const userId = await getUserId();
 
     const { data: progressData, error: progressError } = await supabase
       .from('user_item_progress')
